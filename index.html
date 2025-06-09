@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendar Application</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>Calendar</h1>
+        <div class="view-switcher">
+            <button id="btn-view-day">Day</button>
+            <button id="btn-view-week">Week</button>
+            <button id="btn-view-month">Month</button>
+        </div>
+        <div class="date-navigation">
+            <button id="btn-prev">&lt;</button>
+            <span id="current-date-display"></span>
+            <button id="btn-next">&gt;</button>
+        </div>
+        <button id="btn-today">Today</button>
+        <button id="btn-new-appointment">New Appointment</button>
+    </header>
+
+    <main>
+        <div id="calendar-container">
+            <!-- Calendar view will be dynamically inserted here -->
+        </div>
+    </main>
+
+    <div id="modal-overlay" class="hidden">
+        <div id="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-title-display">Appointment Details</h2>
+                <div>
+                    <button id="modal-btn-edit">Edit</button>
+                    <button id="modal-btn-close">Close</button>
+                </div>
+            </div>
+            <form id="appointment-form">
+                <input type="hidden" id="modal-appointment-id">
+                <div>
+                    <label for="modal-title">Title:</label>
+                    <input type="text" id="modal-title" name="title" required>
+                </div>
+                <div>
+                    <label for="modal-date">Date:</label>
+                    <input type="date" id="modal-date" name="date" required>
+                </div>
+                <div>
+                    <label for="modal-time">Time:</label>
+                    <input type="time" id="modal-time" name="time" required>
+                </div>
+
+                <div id="modal-materials-list">
+                    <!-- Materials will be dynamically inserted here -->
+                </div>
+                <button type="button" id="modal-btn-add-material">Add Material</button>
+
+                <div class="modal-footer">
+                    <button type="button" id="modal-btn-delete">Delete</button>
+                    <button type="button" id="modal-btn-cancel">Cancel</button>
+                    <button type="submit" id="modal-btn-save">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="script.js" defer></script>
+</body>
+</html>
