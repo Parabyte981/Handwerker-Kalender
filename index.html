@@ -1,0 +1,1694 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Handwerker-Kalender</title>
+    <style>
+/* Basic Reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: sans-serif;
+    line-height: 1.6;
+    background-color: #f4f4f4;
+    color: #333;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+header {
+    background-color: #337ab7; /* Blue theme */
+    color: #fff;
+    padding: 1rem;
+    text-align: center;
+}
+
+header h1 {
+    margin-bottom: 0.5rem;
+}
+
+.header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.view-navigation button {
+    background-color: #5bc0de; /* Lighter blue */
+    color: #fff;
+    border: none;
+    padding: 0.5rem 1rem;
+    margin: 0 0.25rem;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.view-navigation button.active {
+    background-color: #2e6da4; /* Darker blue for active */
+    font-weight: bold;
+}
+
+.view-navigation button:hover {
+    opacity: 0.9;
+}
+
+.header-bottom {
+    margin-top: 0.5rem;
+}
+
+.header-bottom button {
+    background-color: #f0ad4e; /* Orange for navigation */
+    color: #fff;
+    border: none;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.header-bottom button:hover {
+    opacity: 0.9;
+}
+
+#currentPeriodDisplay {
+    margin: 0 1rem;
+    font-size: 1.2em;
+}
+
+.container {
+    display: flex;
+    flex: 1; /* Allows main content to grow */
+}
+
+.sidebar {
+    width: 250px;
+    background: #e9ecef; /* Light grey sidebar */
+    padding: 1rem;
+    border-right: 1px solid #ccc;
+}
+
+.sidebar button, .sidebar a {
+    display: block;
+    width: 100%;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    background-color: #5cb85c; /* Green for actions */
+    color: white;
+    text-decoration: none;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: left;
+}
+
+.sidebar button:hover, .sidebar a:hover {
+    opacity: 0.9;
+}
+
+.sidebar .settings-area, .sidebar .data-management {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #ccc;
+}
+.sidebar .settings-area input[type="text"] {
+    width: calc(100% - 70px); /* Adjust based on button width */
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+.sidebar .settings-area button {
+    width: 60px; /* Adjust as needed */
+    padding: 0.5rem;
+    display: inline-block; /* Align next to input */
+}
+
+
+.main-content {
+    flex: 1; /* Takes remaining space */
+    padding: 1rem;
+    background-color: #fff;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .header-top {
+        flex-direction: column;
+    }
+    .view-navigation {
+        margin-top: 0.5rem;
+    }
+    .container {
+        flex-direction: column;
+    }
+    .sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid #ccc;
+    }
+    .sidebar .settings-area input[type="text"],
+    .sidebar .settings-area button {
+        width: auto; /* Allow them to adjust */
+        display: inline-block; /* Keep them on the same line if space allows or stack */
+    }
+     .sidebar .settings-area input[type="text"] {
+        width: calc(100% - 80px); /* Example: make input wider */
+     }
+
+}
+
+@media (max-width: 480px) {
+    .header-top h1 {
+        font-size: 1.5rem;
+    }
+    .view-navigation button, .header-bottom button {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.9rem;
+    }
+    .sidebar button, .sidebar a {
+        padding: 0.6rem;
+        font-size: 0.9rem;
+    }
+}
+
+/* Print styles placeholder */
+@media print {
+    header, .sidebar, .data-management, .settings-area, #addAppointmentBtn, #addCustomerBtn, #customerOverviewLink {
+        display: none !important;
+    }
+    .main-content {
+        width: 100%;
+        padding: 0;
+        margin: 0;
+        border: none;
+    }
+    body {
+        background-color: #fff;
+    }
+}
+
+/* Modal Basic Styles */
+    .modal {
+        display: none; /* Hidden by default */
+        position: fixed; /* Stay in place */
+        z-index: 1000; /* Sit on top */
+        left: 0;
+        top: 0;
+        width: 100%; /* Full width */
+        height: 100%; /* Full height */
+        overflow: auto; /* Enable scroll if needed */
+        background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+    }
+
+    .modal-content {
+        background-color: #fefefe;
+        margin: 10% auto; /* 10% from the top and centered */
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%; /* Could be more or less, depending on screen size */
+        max-width: 500px; /* Maximum width */
+        border-radius: 8px;
+        position: relative;
+    }
+
+    .close-btn {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+    }
+
+    .close-btn:hover,
+    .close-btn:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+    #customerForm div {
+        margin-bottom: 10px;
+    }
+
+    #customerForm label {
+        display: block;
+        margin-bottom: 5px;
+    }
+
+    #customerForm input[type="text"],
+    #customerForm input[type="email"],
+    #customerForm input[type="tel"],
+    #customerForm textarea {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+    }
+
+    .modal-actions {
+        margin-top: 20px;
+        text-align: right;
+    }
+
+    .modal-actions button {
+        padding: 10px 15px;
+        margin-left: 10px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .modal-actions button[type="submit"] {
+        background-color: #5cb85c; /* Green */
+        color: white;
+        border: none;
+    }
+    .modal-actions button[type="button"]#deleteCustomerBtn {
+        background-color: #d9534f; /* Red */
+        color: white;
+        border: none;
+    }
+     .modal-actions button[type="button"]#cancelCustomerModalBtn {
+        background-color: #f0ad4e; /* Orange */
+        color: white;
+        border: none;
+    }
+
+/* Month View Styles */
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 1px;
+        background-color: #ccc; /* For grid lines */
+        border: 1px solid #ccc;
+    }
+
+    .calendar-day-header,
+    .calendar-day {
+        background-color: #fff;
+        padding: 8px;
+        min-height: 100px; /* Adjust as needed */
+        display: flex;
+        flex-direction: column;
+    }
+
+    .calendar-day-header {
+        min-height: auto;
+        font-weight: bold;
+        text-align: center;
+        background-color: #e9ecef;
+    }
+
+    .calendar-day .day-number {
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+
+    .calendar-day.today .day-number {
+        color: #fff;
+        background-color: #337ab7; /* Blue highlight for today */
+        border-radius: 50%;
+        width: 2em;
+        height: 2em;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+    }
+
+    .calendar-day.other-month .day-number {
+        color: #aaa; /* Dim days from other months */
+    }
+
+    .calendar-day:hover {
+        background-color: #f0f8ff; /* Light blue on hover */
+        cursor: pointer;
+    }
+
+    .appointment-summary {
+        font-size: 0.8em;
+        padding: 2px 4px;
+        margin-bottom: 2px;
+        border-radius: 3px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* Status colors for appointments - can be expanded */
+    .appointment-summary.Geplant { background-color: #5bc0de; color: white; }
+    .appointment-summary.Bestätigt { background-color: #337ab7; color: white; }
+    .appointment-summary.InArbeit { background-color: #f0ad4e; color: white; }
+    .appointment-summary.Abgeschlossen { background-color: #5cb85c; color: white; }
+    .appointment-summary.Storniert { background-color: #d9534f; color: white; }
+
+    .more-appointments-indicator {
+        font-size: 0.75em;
+        color: #777;
+        margin-top: auto; /* Pushes to the bottom if space allows */
+    }
+
+/* Day View Styles */
+    .day-view-container {
+        display: flex;
+        flex-direction: column;
+        height: 100%; /* Or a specific height if main-content has it */
+    }
+
+    .day-view-timeline {
+        position: relative; /* For positioning appointment blocks */
+        border: 1px solid #ccc;
+        overflow-y: auto; /* If many time slots */
+        flex-grow: 1;
+    }
+
+    .time-slot {
+        display: flex;
+        border-bottom: 1px dotted #eee; /* Light lines for hours */
+        min-height: 30px; /* For 30-min slots, 60px for 1-hour */
+    }
+
+    .time-slot:last-child {
+        border-bottom: none;
+    }
+
+    .time-label {
+        width: 60px; /* Width of the time labels */
+        padding: 5px;
+        font-size: 0.8em;
+        color: #777;
+        border-right: 1px solid #eee;
+        text-align: right;
+    }
+
+    .slot-content {
+        flex-grow: 1;
+        position: relative; /* For absolute positioning of appointments within */
+    }
+
+    .day-appointment-block {
+        position: absolute; /* Positioned relative to .time-slot or .slot-content */
+        left: 5px; /* Small margin from the time label */
+        right: 5px;
+        padding: 8px;
+        margin-bottom: 2px; /* Spacing between overlapping blocks if any, though true overlap needs z-index */
+        border-radius: 4px;
+        font-size: 0.9em;
+        overflow: hidden;
+        cursor: pointer;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    /* Status colors for appointment blocks */
+    .day-appointment-block.Geplant { background-color: #cce7ff; border-left: 5px solid #5bc0de; color: #333; }
+    .day-appointment-block.Bestätigt { background-color: #d6eaff; border-left: 5px solid #337ab7; color: #333; }
+    .day-appointment-block.InArbeit { background-color: #fff3cd; border-left: 5px solid #f0ad4e; color: #333; }
+    .day-appointment-block.Abgeschlossen { background-color: #d4edda; border-left: 5px solid #5cb85c; color: #333; }
+    .day-appointment-block.Storniert { background-color: #f8d7da; border-left: 5px solid #d9534f; color: #333; text-decoration: line-through; }
+
+    .day-appointment-block h4 {
+        margin: 0 0 5px 0;
+        font-size: 1em;
+    }
+    .day-appointment-block p {
+        margin: 2px 0;
+        font-size: 0.9em;
+    }
+
+/* Week View Styles */
+    .week-view-container {
+        display: flex;
+        flex-direction: column;
+        height: 100%; /* Or a specific height */
+    }
+
+    .week-view-header-row {
+        display: flex;
+        border-bottom: 1px solid #ccc;
+        background-color: #e9ecef;
+    }
+
+    .week-view-time-axis {
+        width: 60px; /* Same as day view time labels */
+        padding: 8px;
+        font-weight: bold;
+        text-align: center;
+        border-right: 1px solid #ccc;
+    }
+
+    .week-view-day-header {
+        flex: 1; /* Equal width for each day column */
+        padding: 8px;
+        text-align: center;
+        font-weight: bold;
+        border-right: 1px solid #ccc;
+    }
+    .week-view-day-header:last-child {
+        border-right: none;
+    }
+    .week-view-day-header.today {
+        background-color: #d1eaff; /* Light blue for today's header */
+    }
+
+
+    .week-view-main-grid {
+        display: flex;
+        flex-grow: 1;
+        overflow-x: auto; /* In case content is too wide */
+    }
+
+    .week-view-time-slots-column {
+        width: 60px; /* Time labels column */
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid #ccc;
+    }
+
+    .week-view-day-column {
+        flex: 1; /* Each day column takes equal space */
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid #ccc;
+        position: relative; /* For positioning appointments */
+    }
+    .week-view-day-column:last-child {
+        border-right: none;
+    }
+    .week-view-day-column.today {
+         background-color: #f8f9fa; /* Slightly different background for today's column */
+    }
+
+
+    .week-view-time-slot {
+        /* min-height defined by JS or same as day view if consistent */
+        border-bottom: 1px dotted #eee;
+        display: flex;
+        align-items: center; /* For time label */
+        justify-content: flex-end; /* For time label */
+        padding-right: 5px; /* For time label */
+        font-size: 0.8em;
+        color: #777;
+    }
+    .week-view-time-slot:last-child {
+        border-bottom: none;
+    }
+
+    .week-view-hour-slot { /* Used in day columns */
+         /* min-height defined by JS */
+        border-bottom: 1px dotted #eee;
+        position: relative; /* Needed if appointments are relative to this */
+    }
+    .week-view-hour-slot:last-child {
+        border-bottom: none;
+    }
+
+
+    .week-appointment-block {
+        position: absolute;
+        left: 2px; /* Small margin within the day column */
+        right: 2px;
+        padding: 4px 6px;
+        border-radius: 4px;
+        font-size: 0.8em; /* Smaller font for week view */
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        cursor: pointer;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        z-index: 5; /* To appear above grid lines */
+    }
+
+    /* Status colors for week appointment blocks (similar to day view but can be simpler) */
+    .week-appointment-block.Geplant { background-color: #cce7ff; border-left: 3px solid #5bc0de; color: #333; }
+    .week-appointment-block.Bestätigt { background-color: #d6eaff; border-left: 3px solid #337ab7; color: #333; }
+    .week-appointment-block.InArbeit { background-color: #fff3cd; border-left: 3px solid #f0ad4e; color: #333; }
+    .week-appointment-block.Abgeschlossen { background-color: #d4edda; border-left: 3px solid #5cb85c; color: #333; }
+    .week-appointment-block.Storniert { background-color: #f8d7da; border-left: 3px solid #d9534f; color: #333; text-decoration: line-through;}
+
+    .week-appointment-block strong { /* For time */
+        display: block;
+        font-size: 0.9em;
+    }
+
+/* Year View Styles */
+    .year-view-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); /* Responsive columns for months */
+        gap: 20px;
+        padding: 10px;
+    }
+
+    .year-month-container {
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        padding: 10px;
+        background-color: #fff;
+    }
+
+    .year-month-container h3 {
+        text-align: center;
+        margin-top: 0;
+        margin-bottom: 10px;
+        font-size: 1.1em;
+        color: #337ab7;
+    }
+
+    .mini-calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 1px; /* Small gap for cell borders */
+        background-color: #e0e0e0; /* Grid line color */
+    }
+
+    .mini-calendar-header,
+    .mini-calendar-day {
+        font-size: 0.8em;
+        padding: 3px; /* Smaller padding */
+        text-align: center;
+        background-color: #fff; /* Day cell background */
+    }
+
+    .mini-calendar-header {
+        font-weight: bold;
+        background-color: #f7f7f7; /* Header background */
+    }
+
+    .mini-calendar-day {
+        min-height: 25px; /* Ensure cells have some height */
+        cursor: pointer;
+        position: relative; /* For appointment marker */
+    }
+
+    .mini-calendar-day:hover {
+        background-color: #e6f2ff; /* Light blue on hover */
+    }
+
+    .mini-calendar-day.other-month {
+        color: #bbb; /* Dim days from other months */
+        background-color: #fdfdfd;
+        cursor: default;
+    }
+    .mini-calendar-day.other-month:hover {
+        background-color: #fdfdfd;
+    }
+
+
+    .mini-calendar-day.today {
+        font-weight: bold;
+        color: #fff;
+        background-color: #337ab7; /* Today's highlight */
+    }
+    .mini-calendar-day.today:hover {
+         background-color: #286090;
+    }
+
+
+    .mini-calendar-day .appointment-marker {
+        position: absolute;
+        bottom: 2px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background-color: #5cb85c; /* Green dot for appointment */
+    }
+    .mini-calendar-day.today .appointment-marker {
+        background-color: #fff; /* White dot on today's highlight */
+    }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-top">
+            <h1>Handwerker-Kalender</h1>
+            <div class="view-navigation">
+                <button id="dayViewBtn">Tag</button>
+                <button id="weekViewBtn">Woche</button>
+                <button id="monthViewBtn" class="active">Monat</button>
+                <button id="yearViewBtn">Jahr</button>
+            </div>
+        </div>
+        <div class="header-bottom">
+            <button id="prevPeriodBtn">&lt; Zurück</button>
+            <span id="currentPeriodDisplay">Oktober 2023</span>
+            <button id="nextPeriodBtn">Weiter &gt;</button>
+        </div>
+    </header>
+
+    <div class="container">
+        <aside class="sidebar">
+            <button id="addAppointmentBtn">+ Neuer Termin</button>
+            <button id="addCustomerBtn">+ Neuer Kunde</button>
+        <a href="#" id="customerOverviewLink">Kundenübersicht</a>
+        <div class="settings-area">
+             <input type="text" id="globalSearchInput" placeholder="Suche...">
+             <button id="searchBtn">Suchen</button>
+        </div>
+        <div class="data-management">
+            <button id="exportDataBtn">Daten exportieren</button>
+            <input type="file" id="importFile" accept=".json" style="display: none;">
+            <button id="importDataBtn">Daten importieren</button>
+        </div>
+        </aside>
+
+        <main class="main-content">
+            <!-- Calendar views or customer overview will be rendered here -->
+            <p>Kalenderansicht wird hier geladen...</p>
+        </main>
+    </div>
+
+    <div id="customerModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-btn" id="closeCustomerModalBtn">&times;</span>
+            <h2 id="customerModalTitle">Neuen Kunden anlegen</h2>
+            <form id="customerForm">
+                <input type="hidden" id="customerId" name="customerId">
+                <div>
+                    <label for="firstName">Vorname:</label>
+                    <input type="text" id="firstName" name="firstName" required>
+                </div>
+                <div>
+                    <label for="lastName">Nachname:</label>
+                    <input type="text" id="lastName" name="lastName" required>
+                </div>
+                <div>
+                    <label for="company">Firma (optional):</label>
+                    <input type="text" id="company" name="company">
+                </div>
+                <div>
+                    <label for="street">Straße & Hausnummer:</label>
+                    <input type="text" id="street" name="street">
+                </div>
+                <div>
+                    <label for="zipCode">PLZ:</label>
+                    <input type="text" id="zipCode" name="zipCode">
+                </div>
+                <div>
+                    <label for="city">Ort:</label>
+                    <input type="text" id="city" name="city">
+                </div>
+                <div>
+                    <label for="phone">Telefonnummer:</label>
+                    <input type="tel" id="phone" name="phone">
+                </div>
+                <div>
+                    <label for="email">E-Mail-Adresse:</label>
+                    <input type="email" id="email" name="email">
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" id="saveCustomerBtn">Speichern</button>
+                    <button type="button" id="deleteCustomerBtn" style="display: none;">Löschen</button>
+                    <button type="button" id="cancelCustomerModalBtn">Abbrechen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div id="appointmentModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-btn" id="closeAppointmentModalBtn">&times;</span>
+            <h2 id="appointmentModalTitle">Neuen Termin anlegen</h2>
+            <form id="appointmentForm">
+                <input type="hidden" id="appointmentId" name="appointmentId">
+                <div>
+                    <label for="appointmentCustomer">Kunde:</label>
+                    <select id="appointmentCustomer" name="customerId" required>
+                        <option value="">Kunde auswählen...</option>
+                        <!-- Customer options will be populated by JavaScript -->
+                    </select>
+                </div>
+                <div>
+                    <label for="task">Tätigkeit:</label>
+                    <input type="text" id="task" name="task" required>
+                </div>
+                <div>
+                    <label for="appointmentDate">Datum:</label>
+                    <input type="date" id="appointmentDate" name="date" required>
+                </div>
+                <div>
+                    <label for="startTime">Startzeit:</label>
+                    <input type="time" id="startTime" name="startTime" required>
+                </div>
+                <div>
+                    <label for="endTime">Endzeit:</label>
+                    <input type="time" id="endTime" name="endTime" required>
+                </div>
+                <div>
+                    <label for="appointmentAddress">Adresse:</label>
+                    <textarea id="appointmentAddress" name="address" rows="3"></textarea>
+                </div>
+                <div>
+                    <label for="appointmentNotes">Notizen:</label>
+                    <textarea id="appointmentNotes" name="notes" rows="3"></textarea>
+                </div>
+                <div>
+                    <label for="appointmentStatus">Status:</label>
+                    <select id="appointmentStatus" name="status">
+                        <option value="Geplant">Geplant</option>
+                        <option value="Bestätigt">Bestätigt</option>
+                        <option value="In Arbeit">In Arbeit</option>
+                        <option value="Abgeschlossen">Abgeschlossen</option>
+                        <option value="Storniert">Storniert</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" id="saveAppointmentBtn">Speichern</button>
+                    <button type="button" id="deleteAppointmentBtn" style="display: none;">Löschen</button>
+                    <button type="button" id="cancelAppointmentModalBtn">Abbrechen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <script>
+// --- Global State ---
+let currentView = 'month'; // Possible values: 'day', 'week', 'month', 'year'
+let currentDate = new Date(); // Represents the reference date for the current view
+let customers = [];
+let appointments = [];
+
+// --- DOM Elements ---
+const dayViewBtn = document.getElementById('dayViewBtn');
+const weekViewBtn = document.getElementById('weekViewBtn');
+const monthViewBtn = document.getElementById('monthViewBtn');
+const yearViewBtn = document.getElementById('yearViewBtn');
+const prevPeriodBtn = document.getElementById('prevPeriodBtn');
+const nextPeriodBtn = document.getElementById('nextPeriodBtn');
+const currentPeriodDisplay = document.getElementById('currentPeriodDisplay');
+const mainContent = document.querySelector('.main-content');
+// Add more DOM element selectors here as needed (e.g., for modals, buttons)
+
+// --- Data Persistence ---
+function loadData() {
+    const storedCustomers = localStorage.getItem('calendarCustomers');
+    const storedAppointments = localStorage.getItem('calendarAppointments');
+
+    customers = storedCustomers ? JSON.parse(storedCustomers) : [];
+    appointments = storedAppointments ? JSON.parse(storedAppointments) : [];
+
+    // Convert date strings back to Date objects for appointments
+    appointments = appointments.map(appt => ({
+        ...appt,
+        date: new Date(appt.date)
+    }));
+
+
+    console.log('Data loaded:', { customers, appointments });
+}
+
+function saveData() {
+    localStorage.setItem('calendarCustomers', JSON.stringify(customers));
+    localStorage.setItem('calendarAppointments', JSON.stringify(appointments));
+    console.log('Data saved.');
+}
+
+// --- Helper function to get appointments for a specific day ---
+function getAppointmentsForDay(date) {
+    return appointments.filter(appt => {
+        const apptDate = new Date(appt.date); // Ensure it's a Date object
+        return apptDate.getFullYear() === date.getFullYear() &&
+               apptDate.getMonth() === date.getMonth() &&
+               apptDate.getDate() === date.getDate();
+    });
+}
+
+// --- Helper: Get week start/end dates ---
+function getWeekDateRange(date) {
+    const d = new Date(date);
+    const dayOfWeek = d.getDay(); // 0 (Sun) to 6 (Sat)
+    const diffToMonday = (dayOfWeek === 0) ? -6 : 1 - dayOfWeek; // Adjust to make Monday the first day
+
+    const weekStart = new Date(d);
+    weekStart.setDate(d.getDate() + diffToMonday);
+    weekStart.setHours(0, 0, 0, 0);
+
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+
+    return { weekStart, weekEnd };
+}
+
+// --- Helper: Get appointments for a specific date range ---
+function getAppointmentsForDateRange(startDate, endDate) {
+    return appointments.filter(appt => {
+        const apptDate = new Date(appt.date);
+        return apptDate >= startDate && apptDate <= endDate;
+    });
+}
+
+
+// --- View Rendering Functions ---
+function renderMonthView() {
+    mainContent.innerHTML = ''; // Clear previous content
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+
+    const firstDayOfMonth = new Date(year, month, 1);
+    const lastDayOfMonth = new Date(year, month + 1, 0);
+    const daysInMonth = lastDayOfMonth.getDate();
+
+    // Calculate the day of the week for the first day (0=Sun, 1=Mon, ..., 6=Sat)
+    // Adjust to make Monday the first day of the week (0=Mon, ..., 6=Sun)
+    let startDayOfWeek = firstDayOfMonth.getDay();
+    startDayOfWeek = (startDayOfWeek === 0) ? 6 : startDayOfWeek - 1;
+
+    const calendarGrid = document.createElement('div');
+    calendarGrid.className = 'calendar-grid';
+
+    // Add day headers (Mo, Di, ...)
+    const dayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+    dayNames.forEach(name => {
+        const headerCell = document.createElement('div');
+        headerCell.className = 'calendar-day-header';
+        headerCell.textContent = name;
+        calendarGrid.appendChild(headerCell);
+    });
+
+    // Add blank cells for days before the first of the month
+    const prevMonthLastDay = new Date(year, month, 0);
+    for (let i = 0; i < startDayOfWeek; i++) {
+        const dayCell = document.createElement('div');
+        dayCell.className = 'calendar-day other-month';
+        const dayNumber = document.createElement('span');
+        dayNumber.className = 'day-number';
+        // Display dimmed numbers from previous month
+        dayNumber.textContent = prevMonthLastDay.getDate() - startDayOfWeek + i + 1;
+        dayCell.appendChild(dayNumber);
+        calendarGrid.appendChild(dayCell);
+    }
+
+    // Add cells for each day of the month
+    const today = new Date();
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dayCell = document.createElement('div');
+        dayCell.className = 'calendar-day';
+        const cellDate = new Date(year, month, day);
+
+        if (day === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+            dayCell.classList.add('today');
+        }
+
+        const dayNumber = document.createElement('span');
+        dayNumber.className = 'day-number';
+        dayNumber.textContent = day;
+        dayCell.appendChild(dayNumber);
+
+        // Add appointments
+        const dayAppointments = getAppointmentsForDay(cellDate);
+        const MAX_APPOINTMENTS_VISIBLE = 2; // Max appointments to show before "X more"
+        dayAppointments.slice(0, MAX_APPOINTMENTS_VISIBLE).forEach(appt => {
+            const apptSummary = document.createElement('div');
+            apptSummary.className = `appointment-summary ${appt.status.replace(/\s+/g, '')}`; // Remove spaces for class
+            apptSummary.textContent = `${appt.startTime} ${appt.customerName || appt.task}`;
+            apptSummary.title = `${appt.startTime} - ${appt.endTime}: ${appt.task} (${appt.customerName || 'N/A'})`;
+            dayCell.appendChild(apptSummary);
+        });
+
+        if (dayAppointments.length > MAX_APPOINTMENTS_VISIBLE) {
+            const moreIndicator = document.createElement('div');
+            moreIndicator.className = 'more-appointments-indicator';
+            moreIndicator.textContent = `... und ${dayAppointments.length - MAX_APPOINTMENTS_VISIBLE} weitere`;
+            dayCell.appendChild(moreIndicator);
+        }
+
+        dayCell.addEventListener('click', () => {
+            currentDate = new Date(year, month, day); // Set currentDate to the clicked day
+            navigateToView('day');
+        });
+        calendarGrid.appendChild(dayCell);
+    }
+
+    // Add blank cells for days after the last of the month to fill the grid
+    const lastDayOfWeek = lastDayOfMonth.getDay();
+    const daysToAdd = (lastDayOfWeek === 0) ? 0 : 7 - lastDayOfWeek; // if Sunday is last, add 0, else calc diff from next Monday
+    const nextMonthFirstDay = new Date(year, month + 1, 1);
+    for (let i = 0; i < daysToAdd; i++) {
+        const dayCell = document.createElement('div');
+        dayCell.className = 'calendar-day other-month';
+        const dayNumber = document.createElement('span');
+        dayNumber.className = 'day-number';
+        dayNumber.textContent = i + 1; // Display dimmed numbers from next month
+        dayCell.appendChild(dayNumber);
+        calendarGrid.appendChild(dayCell);
+    }
+
+
+    mainContent.appendChild(calendarGrid);
+    updateCurrentPeriodDisplay();
+    setActiveViewButton('month');
+    console.log('Rendering Month View for:', currentDate);
+}
+
+function renderWeekView() {
+    mainContent.innerHTML = ''; // Clear previous content
+    const { weekStart, weekEnd } = getWeekDateRange(currentDate);
+
+    const weekViewContainer = document.createElement('div');
+    weekViewContainer.className = 'week-view-container';
+
+    // Header Row (Time Axis + Day Names)
+    const headerRow = document.createElement('div');
+    headerRow.className = 'week-view-header-row';
+    const timeAxisHeader = document.createElement('div');
+    timeAxisHeader.className = 'week-view-time-axis';
+    // timeAxisHeader.textContent = "Time"; // Optional
+    headerRow.appendChild(timeAxisHeader);
+
+    const dayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+    const today = new Date();
+    today.setHours(0,0,0,0);
+
+    for (let i = 0; i < 7; i++) {
+        const dayHeader = document.createElement('div');
+        dayHeader.className = 'week-view-day-header';
+        const currentDayInLoop = new Date(weekStart);
+        currentDayInLoop.setDate(weekStart.getDate() + i);
+        dayHeader.textContent = `${dayNames[i]} ${currentDayInLoop.getDate()}.${currentDayInLoop.getMonth() + 1}`;
+        if (currentDayInLoop.getTime() === today.getTime()) {
+            dayHeader.classList.add('today');
+        }
+        headerRow.appendChild(dayHeader);
+    }
+    weekViewContainer.appendChild(headerRow);
+
+    // Main Grid (Time Slots Column + Day Columns)
+    const mainGrid = document.createElement('div');
+    mainGrid.className = 'week-view-main-grid';
+
+    // Time Slots Column
+    const timeSlotsColumn = document.createElement('div');
+    timeSlotsColumn.className = 'week-view-time-slots-column';
+
+    const START_HOUR = 7;
+    const END_HOUR = 20; // Ends before 20:00
+    const SLOT_DURATION_MINUTES = 60; // Hour slots for week view simplicity
+    const PIXELS_PER_MINUTE = 0.8; // Adjust scale for week view, e.g., 30px per hour.
+                                 // .week-view-time-slot and .week-view-hour-slot min-height should match.
+                                 // Let's use 1px per minute for now, so 60px per hour slot.
+                                 // PIXELS_PER_MINUTE = 1; // 60px per hour.
+                                 // Let's try PIXELS_PER_MINUTE = 0.8; // 48px per hour slot
+
+    for (let hour = START_HOUR; hour < END_HOUR; hour++) {
+        const timeSlotLabel = document.createElement('div');
+        timeSlotLabel.className = 'week-view-time-slot';
+        timeSlotLabel.textContent = `${String(hour).padStart(2, '0')}:00`;
+        timeSlotLabel.style.minHeight = `${60 * PIXELS_PER_MINUTE}px`;
+        timeSlotsColumn.appendChild(timeSlotLabel);
+    }
+    mainGrid.appendChild(timeSlotsColumn);
+
+    // Day Columns
+    const weekAppointments = getAppointmentsForDateRange(weekStart, weekEnd).sort((a,b) => (a.startTime || "").localeCompare(b.startTime || ""));
+
+    for (let i = 0; i < 7; i++) {
+        const dayColumn = document.createElement('div');
+        dayColumn.className = 'week-view-day-column';
+        const currentDayInLoop = new Date(weekStart);
+        currentDayInLoop.setDate(weekStart.getDate() + i);
+         if (currentDayInLoop.getTime() === today.getTime()) {
+            dayColumn.classList.add('today');
+        }
+
+
+        // Create hour slots within each day column for appointment attachment
+        for (let hour = START_HOUR; hour < END_HOUR; hour++) {
+             const hourSlot = document.createElement('div');
+             hourSlot.className = 'week-view-hour-slot';
+             hourSlot.style.minHeight = `${60 * PIXELS_PER_MINUTE}px`;
+             // hourSlot.dataset.time = `${String(hour).padStart(2, '0')}:00`; // For debugging
+             dayColumn.appendChild(hourSlot);
+        }
+
+        // Filter appointments for this specific day of the week
+        const appointmentsForThisDay = weekAppointments.filter(appt => {
+            const apptDate = new Date(appt.date);
+            return apptDate.getFullYear() === currentDayInLoop.getFullYear() &&
+                   apptDate.getMonth() === currentDayInLoop.getMonth() &&
+                   apptDate.getDate() === currentDayInLoop.getDate();
+        });
+
+        appointmentsForThisDay.forEach(appt => {
+            const [startHour, startMinute] = (appt.startTime || "00:00").split(':').map(Number);
+            const [endHour, endMinute] = (appt.endTime || "23:59").split(':').map(Number);
+
+            const topOffset = ((startHour - START_HOUR) * 60 + startMinute) * PIXELS_PER_MINUTE;
+            let durationMinutes = ((endHour * 60 + endMinute) - (startHour * 60 + startMinute));
+            if (durationMinutes <= 0) durationMinutes = 30; // Min duration of 30 mins for visibility
+            const height = Math.max(durationMinutes * PIXELS_PER_MINUTE, 15 * PIXELS_PER_MINUTE); // Ensure min height (e.g. for 15 min)
+
+            const apptBlock = document.createElement('div');
+            apptBlock.className = `week-appointment-block ${appt.status.replace(/\s+/g, '')}`;
+            apptBlock.style.top = `${topOffset}px`;
+            apptBlock.style.height = `${height - 2}px`; // -2 for border/gap
+
+            const timeDisplay = document.createElement('strong');
+            timeDisplay.textContent = `${appt.startTime}`;
+            apptBlock.appendChild(timeDisplay);
+
+            const taskDisplay = document.createTextNode(` ${appt.task}`);
+            apptBlock.appendChild(taskDisplay);
+
+            if (appt.customerName) {
+                const customerDisplay = document.createElement('div');
+                customerDisplay.textContent = appt.customerName;
+                customerDisplay.style.fontSize = '0.9em';
+                apptBlock.appendChild(customerDisplay);
+            }
+
+            apptBlock.title = `${appt.startTime} - ${appt.endTime}: ${appt.task} (${appt.customerName || 'N/A'})`;
+            apptBlock.addEventListener('click', () => openAppointmentModal(appt.id));
+            dayColumn.appendChild(apptBlock);
+        });
+        mainGrid.appendChild(dayColumn);
+    }
+    weekViewContainer.appendChild(mainGrid);
+    mainContent.appendChild(weekViewContainer);
+
+    updateCurrentPeriodDisplay(); // Will show the week range
+    setActiveViewButton('week');
+    console.log('Rendering Week View for week starting:', weekStart.toLocaleDateString());
+}
+
+function renderDayView() {
+    mainContent.innerHTML = ''; // Clear previous content
+    const day = currentDate.getDate();
+    const month = currentDate.getMonth();
+    const year = currentDate.getFullYear();
+
+    const dayViewContainer = document.createElement('div');
+    dayViewContainer.className = 'day-view-container';
+
+    const timeline = document.createElement('div');
+    timeline.className = 'day-view-timeline';
+
+    // Define working hours and time slot duration
+    const START_HOUR = 7;
+    const END_HOUR = 20; // Ends before 20:00, so last slot is 19:30
+    const SLOT_DURATION_MINUTES = 30;
+    const PIXELS_PER_MINUTE = 1; // Each minute is 1px high, so a 30-min slot is 30px. Adjust .time-slot min-height too.
+
+    for (let hour = START_HOUR; hour < END_HOUR; hour++) {
+        for (let minutes = 0; minutes < 60; minutes += SLOT_DURATION_MINUTES) {
+            const timeSlot = document.createElement('div');
+            timeSlot.className = 'time-slot';
+            timeSlot.style.minHeight = `${SLOT_DURATION_MINUTES * PIXELS_PER_MINUTE}px`;
+
+            const timeLabel = document.createElement('div');
+            timeLabel.className = 'time-label';
+            timeLabel.textContent = `${String(hour).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+            timeSlot.appendChild(timeLabel);
+
+            const slotContent = document.createElement('div');
+            slotContent.className = 'slot-content';
+            // This specific slot's date and time
+            slotContent.dataset.time = `${String(hour).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+            timeSlot.appendChild(slotContent);
+
+            timeline.appendChild(timeSlot);
+        }
+    }
+    dayViewContainer.appendChild(timeline);
+
+    // Fetch and display appointments for the current day
+    const dayAppointments = getAppointmentsForDay(currentDate).sort((a, b) => {
+        // Sort by start time
+        return (a.startTime || "00:00").localeCompare(b.startTime || "00:00");
+    });
+
+    dayAppointments.forEach(appt => {
+        const [startHour, startMinute] = (appt.startTime || "00:00").split(':').map(Number);
+        const [endHour, endMinute] = (appt.endTime || "23:59").split(':').map(Number);
+
+        const topOffset = ((startHour - START_HOUR) * 60 + startMinute) * PIXELS_PER_MINUTE;
+        let durationMinutes = ((endHour * 60 + endMinute) - (startHour * 60 + startMinute));
+        if (durationMinutes <= 0) durationMinutes = SLOT_DURATION_MINUTES; // Minimum duration if end time is same or before start
+        const height = durationMinutes * PIXELS_PER_MINUTE;
+
+        const apptBlock = document.createElement('div');
+        apptBlock.className = `day-appointment-block ${appt.status.replace(/\s+/g, '')}`;
+        apptBlock.style.top = `${topOffset}px`;
+        apptBlock.style.height = `${height - 2}px`; // -2 for a small gap or border
+        apptBlock.style.left = `${document.querySelector('.time-label').offsetWidth + 5}px`; // Position after time labels
+
+        const title = document.createElement('h4');
+        title.textContent = `${appt.startTime} - ${appt.endTime}: ${appt.task}`;
+        apptBlock.appendChild(title);
+
+        const customerName = document.createElement('p');
+        customerName.textContent = `Kunde: ${appt.customerName || 'N/A'}`;
+        apptBlock.appendChild(customerName);
+
+        if (appt.address) {
+            const address = document.createElement('p');
+            address.textContent = `Adresse: ${appt.address}`;
+            apptBlock.appendChild(address);
+        }
+         if (appt.notes) {
+            const notes = document.createElement('p');
+            notes.textContent = `Notizen: ${appt.notes}`;
+            apptBlock.appendChild(notes);
+        }
+
+        apptBlock.addEventListener('click', () => {
+            openAppointmentModal(appt.id);
+        });
+
+        // Find the correct .slot-content to append to, or just append to timeline (more robust for overlap)
+        timeline.appendChild(apptBlock); // Appending to timeline directly for easier absolute positioning
+    });
+
+    mainContent.appendChild(dayViewContainer);
+    updateCurrentPeriodDisplay(); // Will show the specific date
+    setActiveViewButton('day');
+    console.log('Rendering Day View for:', currentDate);
+}
+
+function renderYearView() {
+    mainContent.innerHTML = ''; // Clear previous content
+    const year = currentDate.getFullYear();
+
+    const yearViewContainer = document.createElement('div');
+    yearViewContainer.className = 'year-view-container';
+
+    const today = new Date(); // For highlighting the current day
+
+    // Pre-fetch all appointments for the year for efficiency
+    const yearStart = new Date(year, 0, 1);
+    const yearEnd = new Date(year, 11, 31, 23, 59, 59, 999);
+    const yearAppointments = getAppointmentsForDateRange(yearStart, yearEnd);
+
+    // Create a set of date strings (YYYY-MM-DD) that have appointments
+    const daysWithAppointments = new Set();
+    yearAppointments.forEach(appt => {
+        const apptDate = new Date(appt.date);
+        daysWithAppointments.add(`${apptDate.getFullYear()}-${String(apptDate.getMonth() + 1).padStart(2, '0')}-${String(apptDate.getDate()).padStart(2, '0')}`);
+    });
+
+
+    for (let month = 0; month < 12; month++) {
+        const monthContainer = document.createElement('div');
+        monthContainer.className = 'year-month-container';
+
+        const monthName = new Date(year, month).toLocaleString('de-DE', { month: 'long' });
+        const monthTitle = document.createElement('h3');
+        monthTitle.textContent = monthName;
+        monthContainer.appendChild(monthTitle);
+
+        const miniCalendarGrid = document.createElement('div');
+        miniCalendarGrid.className = 'mini-calendar-grid';
+
+        // Day headers (Mo, Di, ...)
+        const dayNames = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+        dayNames.forEach(name => {
+            const headerCell = document.createElement('div');
+            headerCell.className = 'mini-calendar-header';
+            headerCell.textContent = name;
+            miniCalendarGrid.appendChild(headerCell);
+        });
+
+        const firstDayOfMonth = new Date(year, month, 1);
+        const lastDayOfMonth = new Date(year, month + 1, 0);
+        const daysInMonth = lastDayOfMonth.getDate();
+
+        let startDayOfWeek = firstDayOfMonth.getDay(); // 0=Sun, 1=Mon, ...
+        startDayOfWeek = (startDayOfWeek === 0) ? 6 : startDayOfWeek - 1; // Adjust to Mon=0
+
+        // Add blank cells for days before the first of the month
+        for (let i = 0; i < startDayOfWeek; i++) {
+            const dayCell = document.createElement('div');
+            dayCell.className = 'mini-calendar-day other-month';
+            miniCalendarGrid.appendChild(dayCell);
+        }
+
+        // Add cells for each day of the month
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dayCell = document.createElement('div');
+            dayCell.className = 'mini-calendar-day';
+            const cellDate = new Date(year, month, day);
+            dayCell.textContent = day;
+
+            if (year === today.getFullYear() && month === today.getMonth() && day === today.getDate()) {
+                dayCell.classList.add('today');
+            }
+
+            // Check for appointments
+            const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            if (daysWithAppointments.has(dateString)) {
+                const marker = document.createElement('span');
+                marker.className = 'appointment-marker';
+                dayCell.appendChild(marker);
+            }
+
+            dayCell.addEventListener('click', () => {
+                currentDate = new Date(year, month, day); // Set currentDate to the clicked day
+                navigateToView('day');
+            });
+            miniCalendarGrid.appendChild(dayCell);
+        }
+
+        // Add blank cells for days after the last of the month to fill grid
+        const totalCells = startDayOfWeek + daysInMonth;
+        const remainingCells = (totalCells % 7 === 0) ? 0 : 7 - (totalCells % 7) ;
+        for (let i = 0; i < remainingCells; i++) {
+            const dayCell = document.createElement('div');
+            dayCell.className = 'mini-calendar-day other-month';
+            miniCalendarGrid.appendChild(dayCell);
+        }
+
+        monthContainer.appendChild(miniCalendarGrid);
+        yearViewContainer.appendChild(monthContainer);
+    }
+
+    mainContent.appendChild(yearViewContainer);
+    updateCurrentPeriodDisplay(); // Will show the year
+    setActiveViewButton('year');
+    console.log('Rendering Year View for:', year);
+}
+
+function renderCustomerOverview() {
+    mainContent.innerHTML = '<p>Kundenübersicht wird hier gerendert...</p>';
+    // No typical period display for customer overview, maybe hide or show "Kunden"
+    currentPeriodDisplay.textContent = "Kundenübersicht";
+    setActiveViewButton('customerOverview'); // Assuming you might add a class to the link later
+    console.log('Rendering Customer Overview');
+}
+
+// --- UI Update Functions ---
+function updateCurrentPeriodDisplay() {
+    if (currentView === 'month') {
+        currentPeriodDisplay.textContent = `${currentDate.toLocaleString('de-DE', { month: 'long' })} ${currentDate.getFullYear()}`;
+    } else if (currentView === 'day') {
+        currentPeriodDisplay.textContent = currentDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    } else if (currentView === 'week') {
+        const { weekStart, weekEnd } = getWeekDateRange(currentDate); // Ensure getWeekDateRange is defined before this
+        const optionsStart = { day: '2-digit', month: 'short' };
+        const optionsEnd = { day: '2-digit', month: 'short', year: 'numeric' };
+        // If week spans across two years, show year for start date as well
+        if (weekStart.getFullYear() !== weekEnd.getFullYear()) {
+            optionsStart.year = 'numeric';
+        }
+        currentPeriodDisplay.textContent = `${weekStart.toLocaleDateString('de-DE', optionsStart)} - ${weekEnd.toLocaleDateString('de-DE', optionsEnd)}`;
+    } else if (currentView === 'year') {
+        currentPeriodDisplay.textContent = `${currentDate.getFullYear()}`;
+    } else if (currentView === 'customerOverview') {
+         currentPeriodDisplay.textContent = "Kundenübersicht";
+    }
+}
+
+function setActiveViewButton(view) {
+    const buttons = [dayViewBtn, weekViewBtn, monthViewBtn, yearViewBtn];
+    // If you have a customer overview link/button that should look "active", add it here
+    // const customerOverviewLink = document.getElementById('customerOverviewLink');
+
+    buttons.forEach(button => {
+        if (button.id.toLowerCase().startsWith(view)) {
+            button.classList.add('active');
+        } else {
+            button.classList.remove('active');
+        }
+    });
+    // Handle customer overview link separately if it's not a button in the same group
+    // if (view === 'customerOverview' && customerOverviewLink) customerOverviewLink.classList.add('active');
+    // else if(customerOverviewLink) customerOverviewLink.classList.remove('active');
+}
+
+// --- Navigation Logic ---
+function navigateToView(viewName) {
+    currentView = viewName;
+    // Reset currentDate to today if navigating to a new view type, or implement smarter date persistence
+    // For now, let's keep the date, specific views will adjust it if needed (e.g. year view shows whole year)
+
+    switch (viewName) {
+        case 'day':
+            renderDayView();
+            break;
+        case 'week':
+            renderWeekView();
+            break;
+        case 'month':
+            renderMonthView();
+            break;
+        case 'year':
+            renderYearView();
+            break;
+        // case 'customerOverview': // This will be handled by its own link
+        //     renderCustomerOverview();
+        //     break;
+        default:
+            console.error('Unknown view:', viewName);
+            renderMonthView(); // Default to month view
+    }
+}
+
+function changePeriod(direction) {
+    if (currentView === 'month') {
+        currentDate.setMonth(currentDate.getMonth() + direction);
+    } else if (currentView === 'day') {
+        currentDate.setDate(currentDate.getDate() + direction);
+    } else if (currentView === 'week') {
+        currentDate.setDate(currentDate.getDate() + (direction * 7));
+    } else if (currentView === 'year') {
+        currentDate.setFullYear(currentDate.getFullYear() + direction);
+    }
+    // After changing the date, re-render the current view
+    navigateToView(currentView);
+}
+
+// --- Event Listeners ---
+dayViewBtn.addEventListener('click', () => navigateToView('day'));
+weekViewBtn.addEventListener('click', () => navigateToView('week'));
+monthViewBtn.addEventListener('click', () => navigateToView('month'));
+yearViewBtn.addEventListener('click', () => navigateToView('year'));
+
+prevPeriodBtn.addEventListener('click', () => changePeriod(-1));
+nextPeriodBtn.addEventListener('click', () => changePeriod(1));
+
+document.getElementById('customerOverviewLink').addEventListener('click', (e) => {
+    e.preventDefault(); // Prevent default link behavior
+    currentView = 'customerOverview'; // Set a view name for consistency if needed
+    renderCustomerOverview();
+});
+
+
+// --- Initial Load ---
+document.addEventListener('DOMContentLoaded', () => {
+    loadData();
+    navigateToView(currentView); // Render initial view (month)
+});
+
+// --- Customer Management ---
+
+// DOM Elements for Customer Modal
+const addCustomerBtn = document.getElementById('addCustomerBtn');
+const customerModal = document.getElementById('customerModal');
+const closeCustomerModalBtn = document.getElementById('closeCustomerModalBtn');
+const cancelCustomerModalBtn = document.getElementById('cancelCustomerModalBtn');
+const customerForm = document.getElementById('customerForm');
+const customerModalTitle = document.getElementById('customerModalTitle');
+const deleteCustomerBtn = document.getElementById('deleteCustomerBtn');
+let editingCustomerId = null; // To keep track of customer being edited
+
+// UUID Generator (simple version)
+function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+}
+
+function openCustomerModal(customerId = null) {
+    editingCustomerId = customerId;
+    customerForm.reset(); // Clear previous data
+    if (customerId) {
+        const customer = customers.find(c => c.id === customerId);
+        if (customer) {
+            customerModalTitle.textContent = 'Kunden bearbeiten';
+            document.getElementById('customerId').value = customer.id;
+            document.getElementById('firstName').value = customer.firstName;
+            document.getElementById('lastName').value = customer.lastName;
+            document.getElementById('company').value = customer.company || '';
+            document.getElementById('street').value = customer.street || '';
+            document.getElementById('zipCode').value = customer.zipCode || '';
+            document.getElementById('city').value = customer.city || '';
+            document.getElementById('phone').value = customer.phone || '';
+            document.getElementById('email').value = customer.email || '';
+            deleteCustomerBtn.style.display = 'inline-block';
+        } else {
+            console.error('Customer not found for editing:', customerId);
+            editingCustomerId = null; // Reset if customer not found
+            customerModalTitle.textContent = 'Neuen Kunden anlegen';
+            deleteCustomerBtn.style.display = 'none';
+        }
+    } else {
+        customerModalTitle.textContent = 'Neuen Kunden anlegen';
+        document.getElementById('customerId').value = '';
+        deleteCustomerBtn.style.display = 'none';
+    }
+    customerModal.style.display = 'block';
+}
+
+function closeCustomerModal() {
+    customerModal.style.display = 'none';
+    editingCustomerId = null;
+}
+
+function saveCustomer(event) {
+    event.preventDefault();
+    const formData = new FormData(customerForm);
+    const customerData = {
+        id: formData.get('customerId') || generateUUID(),
+        firstName: formData.get('firstName'),
+        lastName: formData.get('lastName'),
+        company: formData.get('company'),
+        street: formData.get('street'),
+        zipCode: formData.get('zipCode'),
+        city: formData.get('city'),
+        phone: formData.get('phone'),
+        email: formData.get('email'),
+    };
+
+    if (editingCustomerId) { // Editing existing customer
+        const index = customers.findIndex(c => c.id === editingCustomerId);
+        if (index > -1) {
+            customers[index] = { ...customers[index], ...customerData };
+        } else {
+             console.error("Customer to update not found");
+             customers.push(customerData); // Fallback: add as new if not found
+        }
+    } else { // Adding new customer
+        customers.push(customerData);
+    }
+    saveData();
+    closeCustomerModal();
+    // Potentially re-render current view if it displays customer data (e.g., customer overview)
+    if (currentView === 'customerOverview') {
+        renderCustomerOverview();
+    }
+    console.log('Customers after save:', customers);
+}
+
+function handleDeleteCustomer() {
+    if (!editingCustomerId) return;
+
+    if (confirm('Möchten Sie diesen Kunden wirklich löschen? Dadurch könnten auch zugehörige Termine beeinflusst werden.')) {
+        // Basic deletion:
+        customers = customers.filter(c => c.id !== editingCustomerId);
+
+        // Advanced: Handle appointments of the deleted customer
+        // Option 1: Delete appointments
+        // appointments = appointments.filter(appt => appt.customerId !== editingCustomerId);
+        // Option 2: Mark appointments as "no customer" / set customerId to null
+        appointments = appointments.map(appt => {
+            if (appt.customerId === editingCustomerId) {
+                return { ...appt, customerId: null, customerName: 'Gelöschter Kunde' }; // Store name for history
+            }
+            return appt;
+        });
+
+        saveData();
+        closeCustomerModal();
+        // Potentially re-render current view
+        if (currentView === 'customerOverview') {
+            renderCustomerOverview();
+        } else {
+            // If appointments were changed, a general re-render might be needed for current calendar view
+            navigateToView(currentView);
+        }
+        console.log('Customer deleted. Customers:', customers, 'Appointments:', appointments);
+    }
+}
+
+// Event Listeners for Customer Modal
+addCustomerBtn.addEventListener('click', () => openCustomerModal());
+closeCustomerModalBtn.addEventListener('click', closeCustomerModal);
+cancelCustomerModalBtn.addEventListener('click', closeCustomerModal);
+customerForm.addEventListener('submit', saveCustomer);
+deleteCustomerBtn.addEventListener('click', handleDeleteCustomer);
+
+// Close modal if user clicks outside of it
+window.addEventListener('click', (event) => {
+    if (event.target === customerModal) {
+        closeCustomerModal();
+    }
+});
+
+// --- Appointment Management ---
+
+// DOM Elements for Appointment Modal
+const addAppointmentBtn = document.getElementById('addAppointmentBtn');
+const appointmentModal = document.getElementById('appointmentModal');
+const closeAppointmentModalBtn = document.getElementById('closeAppointmentModalBtn');
+const cancelAppointmentModalBtn = document.getElementById('cancelAppointmentModalBtn');
+const appointmentForm = document.getElementById('appointmentForm');
+const appointmentModalTitle = document.getElementById('appointmentModalTitle');
+const deleteAppointmentBtn = document.getElementById('deleteAppointmentBtn');
+const appointmentCustomerSelect = document.getElementById('appointmentCustomer');
+const appointmentAddressTextarea = document.getElementById('appointmentAddress');
+let editingAppointmentId = null; // To keep track of appointment being edited
+
+function populateCustomerDropdown() {
+    appointmentCustomerSelect.innerHTML = '<option value="">Kunde auswählen...</option>'; // Clear existing options
+    customers.forEach(customer => {
+        const option = document.createElement('option');
+        option.value = customer.id;
+        option.textContent = `${customer.firstName} ${customer.lastName}` + (customer.company ? ` (${customer.company})` : '');
+        appointmentCustomerSelect.appendChild(option);
+    });
+}
+
+appointmentCustomerSelect.addEventListener('change', function() {
+    const selectedCustomerId = this.value;
+    if (selectedCustomerId) {
+        const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
+        if (selectedCustomer) {
+            let address = '';
+            if (selectedCustomer.street) address += selectedCustomer.street;
+            if (selectedCustomer.zipCode || selectedCustomer.city) {
+                if (address) address += ', ';
+                address += `${selectedCustomer.zipCode || ''} ${selectedCustomer.city || ''}`.trim();
+            }
+            appointmentAddressTextarea.value = address;
+        } else {
+            appointmentAddressTextarea.value = '';
+        }
+    } else {
+        appointmentAddressTextarea.value = '';
+    }
+});
+
+function openAppointmentModal(appointmentId = null, defaultDate = null) {
+    editingAppointmentId = appointmentId;
+    appointmentForm.reset(); // Clear previous data
+    populateCustomerDropdown(); // Always refresh customer list
+
+    if (appointmentId) { // Editing existing appointment
+        const appointment = appointments.find(a => a.id === appointmentId);
+        if (appointment) {
+            appointmentModalTitle.textContent = 'Termin bearbeiten';
+            document.getElementById('appointmentId').value = appointment.id;
+            appointmentCustomerSelect.value = appointment.customerId || '';
+            document.getElementById('task').value = appointment.task;
+
+            // Ensure date is in YYYY-MM-DD for input type="date"
+            if (appointment.date instanceof Date) {
+                document.getElementById('appointmentDate').value = appointment.date.toISOString().split('T')[0];
+            } else if (typeof appointment.date === 'string') { // Fallback if date is already stringified
+                 document.getElementById('appointmentDate').value = appointment.date.split('T')[0];
+            }
+
+            document.getElementById('startTime').value = appointment.startTime;
+            document.getElementById('endTime').value = appointment.endTime;
+            appointmentAddressTextarea.value = appointment.address || '';
+            document.getElementById('appointmentNotes').value = appointment.notes || '';
+            document.getElementById('appointmentStatus').value = appointment.status;
+            deleteAppointmentBtn.style.display = 'inline-block';
+
+            // If customer was deleted, their ID might be null
+            if (!appointment.customerId && appointment.customerName) {
+                 // Optionally, indicate that the original customer is no longer available
+                const option = document.createElement('option');
+                option.value = ""; // No valid customer ID
+                option.textContent = `Original: ${appointment.customerName} (Gelöscht)`;
+                option.disabled = true;
+                if (!appointmentCustomerSelect.querySelector(`[value=""]`)) { // if "Kunde auswählen" is not first
+                    appointmentCustomerSelect.insertBefore(option, appointmentCustomerSelect.firstChild);
+                } else {
+                     appointmentCustomerSelect.insertBefore(option, appointmentCustomerSelect.children[1]);
+                }
+                // appointmentCustomerSelect.value = ""; // Can't select it
+            }
+
+
+        } else {
+            console.error('Appointment not found for editing:', appointmentId);
+            editingAppointmentId = null;
+            appointmentModalTitle.textContent = 'Neuen Termin anlegen';
+            deleteAppointmentBtn.style.display = 'none';
+            if(defaultDate) document.getElementById('appointmentDate').value = defaultDate.toISOString().split('T')[0];
+        }
+    } else { // Adding new appointment
+        appointmentModalTitle.textContent = 'Neuen Termin anlegen';
+        document.getElementById('appointmentId').value = '';
+        deleteAppointmentBtn.style.display = 'none';
+        if(defaultDate) { // Pre-fill date if provided (e.g., clicking on a calendar day)
+             document.getElementById('appointmentDate').value = defaultDate.toISOString().split('T')[0];
+        } else { // Default to today if no specific date is passed
+             document.getElementById('appointmentDate').value = new Date().toISOString().split('T')[0];
+        }
+    }
+    appointmentModal.style.display = 'block';
+}
+
+function closeAppointmentModal() {
+    appointmentModal.style.display = 'none';
+    editingAppointmentId = null;
+}
+
+function saveAppointment(event) {
+    event.preventDefault();
+    const formData = new FormData(appointmentForm);
+    const customerId = formData.get('customerId');
+    const selectedCustomer = customers.find(c => c.id === customerId);
+
+    const appointmentData = {
+        id: formData.get('appointmentId') || generateUUID(),
+        customerId: customerId,
+        // Store customer name directly for easier display later, especially if customer is deleted
+        customerName: selectedCustomer ? `${selectedCustomer.firstName} ${selectedCustomer.lastName}` : (editingAppointmentId && appointments.find(a=>a.id === editingAppointmentId)?.customerName ? appointments.find(a=>a.id === editingAppointmentId).customerName : 'Unbekannt'),
+        task: formData.get('task'),
+        date: new Date(formData.get('date')), // Store as Date object
+        startTime: formData.get('startTime'),
+        endTime: formData.get('endTime'),
+        address: formData.get('address'),
+        notes: formData.get('notes'),
+        status: formData.get('status'),
+    };
+
+    if (editingAppointmentId) { // Editing existing
+        const index = appointments.findIndex(a => a.id === editingAppointmentId);
+        if (index > -1) {
+            appointments[index] = { ...appointments[index], ...appointmentData };
+        } else {
+            console.error("Appointment to update not found");
+            appointments.push(appointmentData); // Fallback
+        }
+    } else { // Adding new
+        appointments.push(appointmentData);
+    }
+    saveData(); // This will stringify the Date object
+    loadData(); // This will parse it back into a Date object immediately for consistency
+    closeAppointmentModal();
+    navigateToView(currentView); // Re-render the current calendar view
+    console.log('Appointments after save:', appointments);
+}
+
+function handleDeleteAppointment() {
+    if (!editingAppointmentId) return;
+
+    if (confirm('Möchten Sie diesen Termin wirklich löschen?')) {
+        appointments = appointments.filter(a => a.id !== editingAppointmentId);
+        saveData();
+        closeAppointmentModal();
+        navigateToView(currentView); // Re-render the current calendar view
+        console.log('Appointment deleted. Appointments:', appointments);
+    }
+}
+
+// Event Listeners for Appointment Modal
+addAppointmentBtn.addEventListener('click', () => openAppointmentModal(null, currentDate)); // Pass current date for new appointments
+closeAppointmentModalBtn.addEventListener('click', closeAppointmentModal);
+cancelAppointmentModalBtn.addEventListener('click', closeAppointmentModal);
+appointmentForm.addEventListener('submit', saveAppointment);
+deleteAppointmentBtn.addEventListener('click', handleDeleteAppointment);
+
+// Close modal if user clicks outside of it
+window.addEventListener('click', (event) => {
+    if (event.target === appointmentModal) {
+        closeAppointmentModal();
+    }
+});
+    </script>
+</body>
+</html>
