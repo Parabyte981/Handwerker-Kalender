@@ -1,15 +1,533 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="de">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" /> <!-- Erwägen Sie, dies zu einem spezifischeren Favicon für Ihre App zu ändern -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Handwerker Kalender Pro</title>
-    <meta name="description" content="Ein Kalender-Tool für Handwerker zur einfachen Terminplanung und -verwaltung.">
-    <!-- Zusätzliche Meta-Tags für SEO und PWA-Funktionen können hier hinzugefügt werden -->
-  </head>
-  <body>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/lucide-react@0.303.0/dist/umd/lucide-react.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: sans-serif; margin: 0; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; background-color: #e5e7eb; /* gray-200 */ }
+        .calendar-day { background-color: white; padding: 8px; min-height: 100px; }
+        .calendar-day.today { background-color: #eff6ff; /* blue-50 */ }
+        .appointment { background-color: #3b82f6; /* blue-500 */ color: white; padding: 2px 4px; border-radius: 4px; font-size: 0.8em; margin-bottom: 2px; }
+        .modal { position: fixed; inset: 0; background-color: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 50; }
+        .modal-content { background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 90%; max-width: 500px; }
+        .dark .calendar-day { background-color: #374151; /* gray-700 */ border-color: #4b5563; /* gray-600 */ }
+        .dark .calendar-day.today { background-color: #1e3a8a; /* blue-900/50 adjusted */ }
+        .dark .modal-content { background-color: #1f2937; /* gray-800 */ }
+        .dark body { background-color: #111827; /* gray-900 */ color: #f3f4f6; /* gray-100 */ }
+        .dark .bg-gray-100 { background-color: #374151; /* gray-700 */ }
+        .dark .text-gray-700 { color: #d1d5db; /* gray-300 */ }
+        .dark .text-gray-900 { color: #f9fafb; /* gray-50 */ }
+        .dark .border-gray-300 { border-color: #4b5563; /* gray-600 */ }
+        .dark .hover\:bg-gray-200:hover { background-color: #4b5563; /* gray-600 */ }
+         @media print {
+            body { font-size: 10pt; }
+            .print\:hidden { display: none !important; }
+            .modal { display: none !important; }
+            .calendar-grid { grid-template-columns: repeat(7, minmax(0,1fr)); gap: 0; border: 1px solid #ccc; }
+            .calendar-day { min-height: auto; border: 1px solid #ccc; padding: 4px; }
+            .appointment { font-size: 0.7em; padding: 1px 2px; margin-bottom: 1px; background-color: #eee !important; color: #333 !important; border: 1px solid #ccc; }
+            .dark body, .dark .calendar-day, .dark .modal-content { background-color: white !important; color: black !important; }
+            /* Further print-specific overrides for dark mode elements if needed */
+        }
+    </style>
+</head>
+<body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+    <script type="text/babel">
+const { useState, useEffect, useMemo, useCallback } = React;
+const { Calendar, ChevronLeft, ChevronRight, Clock, Plus, Edit2, Trash2, Save, X, AlertTriangle, Moon, Sun, Printer, User, Users, Info, Briefcase, Phone, Mail, MapPin } = lucideReact;
+
+// German month and day names
+const germanMonths = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+const germanDays = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+
+// Initial data (normally from a backend)
+const initialCustomersData = [
+  { id: 'c1', name: 'Max Mustermann', firma: 'Muster GmbH', strasseHnr: 'Musterweg 1', plz: '12345', stadt: 'Musterstadt', telefon: '0123-4567890', email: 'max@muster.de' },
+  { id: 'c2', name: 'Erika Mustermann', strasseHnr: 'Beispielallee 2a', plz: '54321', stadt: 'Beispielhausen', telefon: '0987-6543210', email: 'erika@beispiel.com' },
+];
+
+const initialAppointmentsData = [
+  { id: 'a1', customerId: 'c1', date: '2024-07-15', time: '10:00', task: 'Heizungswartung', duration: 2, isRecurring: false },
+  { id: 'a2', customerId: 'c2', date: '2024-07-16', time: '14:00', task: 'Sanitärinstallation', duration: 3, isRecurring: false },
+];
+
+// Helper to get week number
+const getCalendarWeek = (date) => {
+  const target = new Date(date.valueOf());
+  const dayNr = (date.getUTCDay() + 6) % 7;
+  target.setUTCDate(target.getUTCDate() - dayNr + 3);
+  const firstThursday = new Date(Date.UTC(target.getUTCFullYear(), 0, 4));
+  return 1 + Math.round(((target.valueOf() - firstThursday.valueOf()) / 86400000 - 3 + dayNr) / 7);
+};
+
+const App = () => {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [customers, setCustomers] = useState(() => JSON.parse(localStorage.getItem('customers')) || initialCustomersData);
+  const [appointments, setAppointments] = useState(() => {
+      const savedAppointments = JSON.parse(localStorage.getItem('appointments'));
+      return (savedAppointments || initialAppointmentsData).map(app => ({
+          ...app,
+          customerName: (JSON.parse(localStorage.getItem('customers')) || initialCustomersData).find(c => c.id === app.customerId)?.name || 'Unbekannter Kunde'
+      }));
+  });
+
+  const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [isCustomerViewOpen, setIsCustomerViewOpen] = useState(false);
+
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [editingAppointment, setEditingAppointment] = useState(null);
+  const [editingCustomer, setEditingCustomer] = useState(null);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [customerSearchTerm, setCustomerSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState('month'); // 'month', 'week', 'day', 'customers'
+  const [darkMode, setDarkMode] = useState(() => JSON.parse(localStorage.getItem('darkMode')) || false);
+
+  useEffect(() => { localStorage.setItem('appointments', JSON.stringify(appointments.map(({ customerName, ...rest }) => rest))); }, [appointments]);
+  useEffect(() => {
+    localStorage.setItem('customers', JSON.stringify(customers));
+    setAppointments(prevApps => prevApps.map(app => ({
+        ...app,
+        customerName: customers.find(c => c.id === app.customerId)?.name || 'Unbekannter Kunde'
+    })));
+  }, [customers]);
+  useEffect(() => {
+    localStorage.setItem('darkMode', JSON.stringify(darkMode));
+    document.documentElement.classList.toggle('dark', darkMode);
+  }, [darkMode]);
+
+  const firstDayOfMonth = useMemo(() => new Date(currentDate.getFullYear(), currentDate.getMonth(), 1), [currentDate]);
+  const daysInMonth = useMemo(() => new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate(), [currentDate]);
+
+  const handlePrevDate = () => setCurrentDate(prev => {
+    const newDate = new Date(prev);
+    if (viewMode === 'day') newDate.setDate(newDate.getDate() - 1);
+    else if (viewMode === 'week') newDate.setDate(newDate.getDate() - 7);
+    else if (viewMode === 'month') newDate.setMonth(newDate.getMonth() - 1);
+    return newDate;
+  });
+
+  const handleNextDate = () => setCurrentDate(prev => {
+    const newDate = new Date(prev);
+    if (viewMode === 'day') newDate.setDate(newDate.getDate() + 1);
+    else if (viewMode === 'week') newDate.setDate(newDate.getDate() + 7);
+    else if (viewMode === 'month') newDate.setMonth(newDate.getMonth() + 1);
+    return newDate;
+  });
+
+  const handleToday = () => { setCurrentDate(new Date()); setSelectedDate(new Date()); setViewMode('day'); };
+  const handleDateClick = (date) => { setSelectedDate(date); setViewMode('day'); };
+  const openAppointmentModal = (date, appointment = null) => { setSelectedDate(date); setEditingAppointment(appointment); setIsAppointmentModalOpen(true); };
+  const openCustomerModal = (customer = null) => { setEditingCustomer(customer); setIsCustomerModalOpen(true); setIsCustomerViewOpen(false); };
+  const openCustomerView = (customer) => { setSelectedCustomer(customer); setIsCustomerViewOpen(true); };
+
+  const handleSaveAppointment = (appData) => {
+    const customerName = customers.find(c => c.id === appData.customerId)?.name || 'Unbekannter Kunde';
+    setAppointments(prev => editingAppointment
+      ? prev.map(a => a.id === editingAppointment.id ? { ...editingAppointment, ...appData, customerName } : a)
+      : [...prev, { ...appData, id: Date.now().toString(), customerName }]
+    );
+    setIsAppointmentModalOpen(false); setEditingAppointment(null);
+  };
+
+  const handleDeleteAppointment = (id) => { if (confirm("Termin löschen?")) setAppointments(prev => prev.filter(a => a.id !== id)); };
+
+  const handleSaveCustomer = (custData) => {
+    setCustomers(prev => editingCustomer
+      ? prev.map(c => c.id === editingCustomer.id ? custData : c)
+      : [...prev, { ...custData, id: Date.now().toString() }]
+    );
+    setIsCustomerModalOpen(false); setEditingCustomer(null);
+  };
+
+  const handleDeleteCustomer = (id) => {
+    if (confirm("Kunde und alle zugehörigen Termine löschen?")) {
+      setCustomers(prev => prev.filter(c => c.id !== id));
+      setAppointments(prev => prev.filter(a => a.customerId !== id));
+      setIsCustomerViewOpen(false); setSelectedCustomer(null);
+    }
+  };
+
+  const getAppointmentsForDate = useCallback((date) => {
+    if (!date) return [];
+    const dateStr = date.toISOString().split('T')[0];
+    return appointments.filter(app => {
+      if (app.date === dateStr) return true;
+      if (app.isRecurring) {
+        const appDate = new Date(app.date);
+        if (appDate > date || (app.recurringEndDate && new Date(app.recurringEndDate) < date)) return false;
+        if (app.recurringEndDate && app.recurringEndDate === dateStr) return true; // Include if end date is the current date
+        if (app.recurringType === 'daily') return true;
+        if (app.recurringType === 'weekly' && appDate.getDay() === date.getDay()) return true;
+        if (app.recurringType === 'monthly' && appDate.getDate() === date.getDate()) return true;
+        if (app.recurringType === 'yearly' && appDate.getDate() === date.getDate() && appDate.getMonth() === date.getMonth()) return true;
+      }
+      return false;
+    }).sort((a, b) => a.time.localeCompare(b.time));
+  }, [appointments]);
+
+  const filteredAppointmentsBySearch = useMemo(() => {
+    if (!searchTerm) return [];
+    return appointments.filter(app =>
+      app.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      app.task.toLowerCase().includes(searchTerm.toLowerCase())
+    ).sort((a,b) => new Date(a.date) - new Date(b.date) || a.time.localeCompare(b.time));
+  }, [appointments, searchTerm]);
+
+  const filteredCustomers = useMemo(() => customers.filter(c =>
+    Object.values(c).some(val => String(val).toLowerCase().includes(customerSearchTerm.toLowerCase()))
+  ), [customers, customerSearchTerm]);
+
+  const formatDateRangeHeader = (date, currentView) => {
+    if (currentView === 'day') return date.toLocaleDateString('de-DE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    if (currentView === 'week') {
+      const start = new Date(date);
+      start.setDate(date.getDate() - (date.getDay() || 7) + 1);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 6);
+      return `KW ${getCalendarWeek(date)}: ${start.toLocaleDateString('de-DE', {day:'numeric', month:'short'})} - ${end.toLocaleDateString('de-DE', {day:'numeric',month:'short',year:'numeric'})}`;
+    }
+    return date.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+  };
+
+  const CalendarHeader = () => (
+    <div className="flex items-center justify-between mb-4 print:hidden">
+      {viewMode !== 'customers' ? (
+        <div className="flex items-center space-x-2">
+          <button onClick={handlePrevDate} className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600"><ChevronLeft size={20}/></button>
+          <span className="text-lg font-semibold w-64 text-center select-none">{formatDateRangeHeader(currentDate, viewMode)}</span>
+          <button onClick={handleNextDate} className="p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600"><ChevronRight size={20}/></button>
+        </div>
+      ) : <span className="text-lg font-semibold">Kundenverwaltung</span>}
+      <div className="flex space-x-1">
+        {['day', 'week', 'month', 'customers'].map(v => (
+          <button key={v} onClick={() => setViewMode(v)} className={`px-3 py-1.5 text-sm rounded-md ${viewMode === v ? 'bg-blue-500 text-white' : 'hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
+            {v.charAt(0).toUpperCase() + v.slice(1)}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderCalendarGrid = () => {
+    const dayOffset = (firstDayOfMonth.getDay() + 6) % 7;
+    const days = Array(dayOffset).fill(null).concat(Array.from({ length: daysInMonth }, (_, i) => new Date(currentDate.getFullYear(), currentDate.getMonth(), i + 1)));
+    const totalCells = Math.ceil((dayOffset + daysInMonth) / 7) * 7;
+    for (let i = days.length; i < totalCells; i++) { days.push(null); }
+
+    return (
+      <>
+        <div className="grid grid-cols-7 text-center font-semibold print:hidden">
+          {germanDays.map(day => <div key={day} className="py-2 border-b dark:border-gray-600">{day}</div>)}
+        </div>
+        <div className="calendar-grid print:border-t print:border-l">
+          {days.map((day, index) => (
+            <div key={index} className={`calendar-day ${day && day.toDateString() === new Date().toDateString() ? 'today' : ''} print:border-r print:border-b`} onClick={() => day && handleDateClick(day)}>
+              {day && <span className="text-sm">{day.getDate()}</span>}
+              <div className="mt-1 space-y-0.5">
+                {day && getAppointmentsForDate(day).slice(0, viewMode === 'month' ? 2 : undefined).map(app => (
+                  <div key={app.id} className="appointment truncate" title={`${app.time} - ${app.customerName}: ${app.task}`}>
+                    {app.time} {app.customerName}
+                  </div>
+                ))}
+                {day && viewMode === 'month' && getAppointmentsForDate(day).length > 2 && (
+                    <div className="text-gray-500 text-xs text-center print:hidden">+{getAppointmentsForDate(day).length - 2} weitere</div>
+                )}
+              </div>
+              {day && <button onClick={(e) => { e.stopPropagation(); openAppointmentModal(day);}} className="absolute bottom-1 right-1 bg-green-500 hover:bg-green-600 text-white p-1 rounded-full text-xs print:hidden"><Plus size={12}/></button>}
+            </div>
+          ))}
+        </div>
+      </>
+    );
+  };
+
+  const renderWeekView = () => {
+    const startOfWeek = new Date(currentDate);
+    startOfWeek.setDate(currentDate.getDate() - (currentDate.getDay() === 0 ? 6 : currentDate.getDay() - 1));
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-7 gap-px bg-gray-200 dark:bg-gray-900 print:grid-cols-1">
+        {Array.from({length: 7}).map((_, i) => {
+          const day = new Date(startOfWeek);
+          day.setDate(startOfWeek.getDate() + i);
+          const dayAppointments = getAppointmentsForDate(day);
+          return (
+            <div key={i} className={`border dark:border-gray-700 p-2 ${day.toDateString() === new Date().toDateString() ? 'bg-blue-50 dark:bg-blue-900/30' : 'bg-white dark:bg-gray-800'} print:border-gray-300`}>
+              <h3 className="font-semibold text-center text-sm dark:text-gray-200">{germanDays[day.getDay()]} {day.getDate()}.{day.getMonth()+1}.</h3>
+              <div className="mt-2 space-y-2">
+                {dayAppointments.length > 0
+                  ? dayAppointments.map(app => <AppointmentCard key={app.id} appointment={app} onEdit={() => openAppointmentModal(day, app)} onDelete={handleDeleteAppointment} darkMode={darkMode}/>)
+                  : <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-4">Keine Termine.</p>}
+              </div>
+              <button onClick={() => openAppointmentModal(day)} className="mt-2 w-full bg-green-500 hover:bg-green-600 text-white p-1.5 rounded flex items-center justify-center text-sm print:hidden"><Plus size={14} className="mr-1"/>Termin</button>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderDayView = () => {
+    const dayAppointments = getAppointmentsForDate(selectedDate || currentDate);
+    const dayToDisplay = selectedDate || currentDate;
+    return (
+      <div className={`p-4 ${dayToDisplay.toDateString() === new Date().toDateString() ? 'bg-blue-50 dark:bg-blue-900/30' : 'bg-white dark:bg-gray-800'}`}>
+        <h2 className="text-xl font-bold mb-4 dark:text-gray-100">
+          Termine für {dayToDisplay.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+        </h2>
+        {dayAppointments.length > 0
+          ? <div className="space-y-4">{dayAppointments.map(app => <AppointmentCard key={app.id} appointment={app} onEdit={() => openAppointmentModal(dayToDisplay, app)} onDelete={handleDeleteAppointment} darkMode={darkMode}/>)}</div>
+          : <p className="text-gray-600 dark:text-gray-400">Keine Termine für diesen Tag.</p>}
+        <button onClick={() => openAppointmentModal(dayToDisplay)} className="mt-6 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded shadow flex items-center print:hidden"><Plus size={20} className="mr-2"/>Neuer Termin</button>
+      </div>
+    );
+  };
+
+  const renderCustomerList = () => (
+    <div className="p-4">
+      <div className="flex mb-4">
+        <input type="text" placeholder="Kunden suchen..." value={customerSearchTerm} onChange={e => setCustomerSearchTerm(e.target.value)} className="p-2 border border-gray-300 dark:border-gray-600 rounded-l-md w-full dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
+        <button onClick={() => openCustomerModal()} className="bg-green-500 hover:bg-green-600 text-white p-2 rounded-r-md flex items-center"><Plus size={18} className="mr-1"/>Kunde</button>
+      </div>
+      <ul className="divide-y divide-gray-200 dark:divide-gray-700 max-h-[calc(100vh-250px)] overflow-y-auto">
+        {filteredCustomers.map(c => (
+          <li key={c.id} className="py-3 px-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex justify-between items-center" onClick={() => openCustomerView(c)}>
+            <div><span className="font-medium">{c.name}</span> <span className="text-sm text-gray-500 dark:text-gray-400">({c.firma || c.stadt})</span></div>
+            <ChevronRight size={18} className="text-gray-400"/>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+
+  const renderMainView = () => {
+    if (searchTerm) return <SearchResults appointments={filteredAppointmentsBySearch} onEdit={openAppointmentModal} onDelete={handleDeleteAppointment} darkMode={darkMode} />;
+    if (viewMode === 'customers') return renderCustomerList();
+    if (viewMode === 'month') return renderCalendarGrid();
+    if (viewMode === 'week') return renderWeekView();
+    if (viewMode === 'day') return renderDayView();
+    return null;
+  };
+
+  return (
+    <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'dark' : ''}`}>
+      <header className="bg-blue-600 dark:bg-blue-800 text-white p-4 shadow-md print:hidden">
+        <div className="container mx-auto flex flex-wrap items-center justify-between gap-y-2">
+          <h1 className="text-2xl font-bold flex items-center"><Calendar className="mr-2"/>Handwerker Kalender Pro</h1>
+          <div className="flex items-center space-x-2">
+            <input type="text" placeholder="Termine suchen..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="p-2 rounded border border-gray-300 dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-300"/>
+            <button onClick={() => setDarkMode(!darkMode)} className="p-2 rounded hover:bg-blue-700 dark:hover:bg-blue-900" title={darkMode ? "Light Mode" : "Dark Mode"}>{darkMode ? <Sun/> : <Moon/>}</button>
+            <button onClick={handleToday} className="p-2 bg-white text-blue-600 dark:bg-gray-200 dark:text-blue-800 rounded shadow hover:bg-gray-50 dark:hover:bg-gray-300">Heute</button>
+            <button onClick={() => window.print()} className="p-2 bg-white text-blue-600 dark:bg-gray-200 dark:text-blue-800 rounded shadow hover:bg-gray-50 dark:hover:bg-gray-300"><Printer size={20}/></button>
+          </div>
+        </div>
+      </header>
+      <main className="container mx-auto p-4">
+        <div className="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-6 print:shadow-none print:border-0">
+          <CalendarHeader />
+          {renderMainView()}
+        </div>
+      </main>
+      {isAppointmentModalOpen && <AppointmentModal isOpen={isAppointmentModalOpen} onClose={() => setIsAppointmentModalOpen(false)} onSave={handleSaveAppointment} selectedDate={selectedDate} existingAppointment={editingAppointment} customers={customers} darkMode={darkMode} />}
+      {isCustomerModalOpen && <CustomerModal isOpen={isCustomerModalOpen} onClose={() => setIsCustomerModalOpen(false)} onSave={handleSaveCustomer} existingCustomer={editingCustomer} darkMode={darkMode} />}
+      {selectedCustomer && isCustomerViewOpen && <CustomerViewModal isOpen={isCustomerViewOpen} onClose={() => setIsCustomerViewOpen(false)} customer={selectedCustomer} onEdit={openCustomerModal} onDelete={handleDeleteCustomer} darkMode={darkMode} />}
+    </div>
+  );
+};
+
+const AppointmentModal = ({ isOpen, onClose, onSave, selectedDate, existingAppointment, customers, darkMode }) => {
+  const [formData, setFormData] = useState({
+    time: '09:00', customerId: customers[0]?.id || '', task: '', duration: 1,
+    isRecurring: false, recurringType: 'weekly', recurringEndDate: ''
+  });
+  const [errors, setErrors] = useState({});
+
+  useEffect(() => {
+    if (existingAppointment) setFormData({...existingAppointment, customerId: existingAppointment.customerId || customers[0]?.id});
+    else setFormData({ time: '09:00', customerId: customers[0]?.id || '', task: '', duration: 1, isRecurring: false, recurringType: 'weekly', recurringEndDate: '' });
+  }, [existingAppointment, isOpen]);
+
+  const handleChange = e => setFormData({...formData, [e.target.name]: e.target.type === 'checkbox' ? e.target.checked : e.target.value });
+
+  const validate = () => {
+    const newErrors = {};
+    if (!formData.time) newErrors.time = "Uhrzeit ist erforderlich.";
+    if (!formData.customerId) newErrors.customerId = "Kunde ist erforderlich.";
+    if (!formData.task.trim()) newErrors.task = "Aufgabe ist erforderlich.";
+    if (formData.duration <= 0) newErrors.duration = "Dauer muss positiv sein.";
+    if (formData.isRecurring && formData.recurringEndDate && new Date(formData.recurringEndDate) < new Date(selectedDate.toISOString().split('T')[0])) {
+        newErrors.recurringEndDate = "Enddatum der Wiederholung darf nicht vor dem Startdatum liegen.";
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = e => { e.preventDefault(); if (validate()) onSave({ ...formData, date: selectedDate.toISOString().split('T')[0] }); };
+
+  if (!isOpen) return null;
+  const selectedCustomerDetails = customers.find(c => c.id === formData.customerId);
+
+  return (
+    <div className="modal print:hidden">
+      <div className={`modal-content ${darkMode ? 'dark' : ''} max-h-[90vh] overflow-y-auto`}>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-semibold">{existingAppointment ? 'Termin bearbeiten' : 'Neuer Termin'}</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"><X/></button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div><label className="block text-sm font-medium">Datum</label><input type="text" value={selectedDate.toLocaleDateString('de-DE')} readOnly className="mt-1 block w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-gray-100 dark:bg-gray-700"/></div>
+          <div><label htmlFor="time" className="block text-sm font-medium">Uhrzeit</label><input type="time" name="time" id="time" value={formData.time} onChange={handleChange} className={`mt-1 block w-full p-2 border dark:bg-gray-700 ${errors.time ? 'border-red-500':'border-gray-300 dark:border-gray-600'} rounded-md shadow-sm`} required/>{errors.time && <p className="text-xs text-red-500">{errors.time}</p>}</div>
+          <div>
+            <label htmlFor="customerId" className="block text-sm font-medium">Kunde</label>
+            <select name="customerId" id="customerId" value={formData.customerId} onChange={handleChange} className={`mt-1 block w-full p-2 border dark:bg-gray-700 ${errors.customerId ? 'border-red-500':'border-gray-300 dark:border-gray-600'} rounded-md shadow-sm`} required>
+              {customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.firma || c.stadt})</option>)}
+            </select>
+            {errors.customerId && <p className="text-xs text-red-500">{errors.customerId}</p>}
+            {selectedCustomerDetails && <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-700/50 rounded text-xs">
+                <p>{selectedCustomerDetails.strasseHnr}, {selectedCustomerDetails.plz} {selectedCustomerDetails.stadt}</p>
+                <p>Tel: {selectedCustomerDetails.telefon}</p>
+            </div>}
+          </div>
+          <div><label htmlFor="task" className="block text-sm font-medium">Aufgabe</label><textarea name="task" id="task" value={formData.task} onChange={handleChange} rows="3" className={`mt-1 block w-full p-2 border dark:bg-gray-700 ${errors.task ? 'border-red-500':'border-gray-300 dark:border-gray-600'} rounded-md shadow-sm`} required></textarea>{errors.task && <p className="text-xs text-red-500">{errors.task}</p>}</div>
+          <div><label htmlFor="duration" className="block text-sm font-medium">Dauer (Stunden)</label><input type="number" name="duration" id="duration" value={formData.duration} onChange={handleChange} min="0.25" step="0.25" className={`mt-1 block w-full p-2 border dark:bg-gray-700 ${errors.duration ? 'border-red-500':'border-gray-300 dark:border-gray-600'} rounded-md shadow-sm`} required/>{errors.duration && <p className="text-xs text-red-500">{errors.duration}</p>}</div>
+          <div className="flex items-center"><input type="checkbox" name="isRecurring" id="isRecurring" checked={formData.isRecurring} onChange={handleChange} className="h-4 w-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded"/><label htmlFor="isRecurring" className="ml-2 block text-sm">Wiederkehrend</label></div>
+          {formData.isRecurring && (<>
+            <div><label htmlFor="recurringType" className="block text-sm font-medium">Typ</label><select name="recurringType" id="recurringType" value={formData.recurringType} onChange={handleChange} className="mt-1 block w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-md shadow-sm"><option value="daily">Täglich</option><option value="weekly">Wöchentlich</option><option value="monthly">Monatlich</option><option value="yearly">Jährlich</option></select></div>
+            <div><label htmlFor="recurringEndDate" className="block text-sm font-medium">Enddatum (optional)</label><input type="date" name="recurringEndDate" id="recurringEndDate" value={formData.recurringEndDate} onChange={handleChange} min={selectedDate.toISOString().split('T')[0]} className={`mt-1 block w-full p-2 border dark:bg-gray-700 ${errors.recurringEndDate ? 'border-red-500':'border-gray-300 dark:border-gray-600'} rounded-md shadow-sm`}/>{errors.recurringEndDate && <p className="text-xs text-red-500">{errors.recurringEndDate}</p>}</div>
+          </>)}
+          <div className="flex justify-end space-x-3"><button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-500">Abbrechen</button><button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-sm flex items-center"><Save size={16} className="mr-2"/>Speichern</button></div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const CustomerModal = ({ isOpen, onClose, onSave, existingCustomer, darkMode }) => {
+  const [formData, setFormData] = useState({ name: '', firma: '', strasseHnr: '', plz: '', stadt: '', telefon: '', email: '' });
+  const [errors, setErrors] = useState({});
+
+  useEffect(() => {
+    if (existingCustomer) setFormData(existingCustomer);
+    else setFormData({ name: '', firma: '', strasseHnr: '', plz: '', stadt: '', telefon: '', email: '' });
+  }, [existingCustomer, isOpen]);
+
+  const handleChange = e => setFormData({...formData, [e.target.name]: e.target.value });
+
+  const validate = () => {
+    const newErrors = {};
+    if (!formData.name.trim()) newErrors.name = "Name ist erforderlich.";
+    if (!formData.strasseHnr.trim()) newErrors.strasseHnr = "Straße & Nr. ist erforderlich.";
+    if (!formData.plz.trim()) newErrors.plz = "PLZ ist erforderlich.";
+    else if (!/^\d{5}$/.test(formData.plz.trim())) newErrors.plz = "PLZ muss 5-stellig sein.";
+    if (!formData.stadt.trim()) newErrors.stadt = "Stadt ist erforderlich.";
+    if (!formData.telefon.trim()) newErrors.telefon = "Telefon ist erforderlich.";
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = e => { e.preventDefault(); if (validate()) onSave(formData); };
+
+  if (!isOpen) return null;
+  return (
+    <div className="modal print:hidden">
+      <div className={`modal-content ${darkMode ? 'dark' : ''} max-h-[90vh] overflow-y-auto`}>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-semibold">{existingCustomer ? 'Kunde bearbeiten' : 'Neuer Kunde'}</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"><X/></button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div><label htmlFor="name" className="block text-sm font-medium">Name</label><input type="text" name="name" id="name" value={formData.name} onChange={handleChange} className={`mt-1 block w-full p-2 border dark:bg-gray-700 ${errors.name ? 'border-red-500':'border-gray-300 dark:border-gray-600'} rounded-md shadow-sm`} required/>{errors.name && <p className="text-xs text-red-500">{errors.name}</p>}</div>
+          <div><label htmlFor="firma" className="block text-sm font-medium">Firma (optional)</label><input type="text" name="firma" id="firma" value={formData.firma} onChange={handleChange} className="mt-1 block w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-md shadow-sm"/></div>
+          <div><label htmlFor="strasseHnr" className="block text-sm font-medium">Straße & Nr.</label><input type="text" name="strasseHnr" id="strasseHnr" value={formData.strasseHnr} onChange={handleChange} className={`mt-1 block w-full p-2 border dark:bg-gray-700 ${errors.strasseHnr ? 'border-red-500':'border-gray-300 dark:border-gray-600'} rounded-md shadow-sm`} required/>{errors.strasseHnr && <p className="text-xs text-red-500">{errors.strasseHnr}</p>}</div>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="col-span-1"><label htmlFor="plz" className="block text-sm font-medium">PLZ</label><input type="text" name="plz" id="plz" value={formData.plz} onChange={handleChange} className={`mt-1 block w-full p-2 border dark:bg-gray-700 ${errors.plz ? 'border-red-500':'border-gray-300 dark:border-gray-600'} rounded-md shadow-sm`} required/>{errors.plz && <p className="text-xs text-red-500">{errors.plz}</p>}</div>
+            <div className="col-span-2"><label htmlFor="stadt" className="block text-sm font-medium">Stadt</label><input type="text" name="stadt" id="stadt" value={formData.stadt} onChange={handleChange} className={`mt-1 block w-full p-2 border dark:bg-gray-700 ${errors.stadt ? 'border-red-500':'border-gray-300 dark:border-gray-600'} rounded-md shadow-sm`} required/>{errors.stadt && <p className="text-xs text-red-500">{errors.stadt}</p>}</div>
+          </div>
+          <div><label htmlFor="telefon" className="block text-sm font-medium">Telefon</label><input type="tel" name="telefon" id="telefon" value={formData.telefon} onChange={handleChange} className={`mt-1 block w-full p-2 border dark:bg-gray-700 ${errors.telefon ? 'border-red-500':'border-gray-300 dark:border-gray-600'} rounded-md shadow-sm`} required/>{errors.telefon && <p className="text-xs text-red-500">{errors.telefon}</p>}</div>
+          <div><label htmlFor="email" className="block text-sm font-medium">E-Mail (optional)</label><input type="email" name="email" id="email" value={formData.email} onChange={handleChange} className="mt-1 block w-full p-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-md shadow-sm"/></div>
+          <div className="flex justify-end space-x-3"><button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-500">Abbrechen</button><button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-sm flex items-center"><Save size={16} className="mr-2"/>Speichern</button></div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+const CustomerViewModal = ({ isOpen, onClose, customer, onEdit, onDelete, darkMode }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="modal print:hidden">
+      <div className={`modal-content ${darkMode ? 'dark' : ''}`}>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-semibold flex items-center"><User className="mr-2"/>{customer.name}</h3>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"><X/></button>
+        </div>
+        <div className="space-y-2 text-sm">
+          {customer.firma && <p className="flex items-center"><Briefcase size={14} className="mr-2 text-gray-500 dark:text-gray-400"/>{customer.firma}</p>}
+          <p className="flex items-center"><MapPin size={14} className="mr-2 text-gray-500 dark:text-gray-400"/>{customer.strasseHnr}, {customer.plz} {customer.stadt}</p>
+          <p className="flex items-center"><Phone size={14} className="mr-2 text-gray-500 dark:text-gray-400"/>{customer.telefon}</p>
+          {customer.email && <p className="flex items-center"><Mail size={14} className="mr-2 text-gray-500 dark:text-gray-400"/>{customer.email}</p>}
+        </div>
+        <div className="mt-6 flex justify-end space-x-3">
+          <button onClick={() => onDelete(customer.id)} className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md shadow-sm flex items-center"><Trash2 size={16} className="mr-2"/>Löschen</button>
+          <button onClick={() => onEdit(customer)} className="px-4 py-2 text-sm font-medium text-white bg-yellow-500 hover:bg-yellow-600 rounded-md shadow-sm flex items-center"><Edit2 size={16} className="mr-2"/>Bearbeiten</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AppointmentCard = ({ appointment, onEdit, onDelete, darkMode }) => {
+  const cardDate = new Date(appointment.date);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const isPast = cardDate < today;
+  const isToday = cardDate.toDateString() === today.toDateString();
+
+  let borderColor = 'border-blue-500 dark:border-blue-700';
+  if (isToday) borderColor = 'border-green-500 dark:border-green-600';
+  else if (isPast) borderColor = 'border-gray-400 dark:border-gray-600 opacity-70';
+
+  return (
+    <div className={`shadow-lg rounded-lg p-3 border-l-4 ${borderColor} ${darkMode ? 'bg-gray-800' : 'bg-white'} transition-shadow hover:shadow-xl print:shadow-none print:border print:border-gray-300 print:p-2`}>
+      <div className="flex justify-between items-start">
+        <div>
+          <h3 className={`text-md font-semibold ${isToday ? 'text-green-700 dark:text-green-400' : isPast ? 'text-gray-600 dark:text-gray-400' : 'text-blue-700 dark:text-blue-400'} print:text-sm`}>{appointment.customerName}</h3>
+          <p className="text-xs text-gray-600 dark:text-gray-300 flex items-center print:text-xs"><Clock size={12} className="mr-1.5"/>{appointment.time} Uhr ({appointment.duration}h)</p>
+          {isToday && <span className="text-xs bg-green-100 text-green-700 dark:bg-green-700 dark:text-green-100 px-2 py-0.5 rounded-full font-medium mt-1 inline-block print:hidden">Heute</span>}
+          {isPast && !isToday && <span className="text-xs bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-full font-medium mt-1 inline-block print:hidden">Vergangen</span>}
+        </div>
+        <div className="flex space-x-1 print:hidden">
+          <button onClick={onEdit} className="text-yellow-500 hover:text-yellow-600 dark:text-yellow-400 dark:hover:text-yellow-300 p-1 rounded-md hover:bg-yellow-100 dark:hover:bg-gray-700"><Edit2 size={16}/></button>
+          <button onClick={() => onDelete(appointment.id)} className="text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 p-1 rounded-md hover:bg-red-100 dark:hover:bg-gray-700"><Trash2 size={16}/></button>
+        </div>
+      </div>
+      <p className="text-gray-700 dark:text-gray-200 mt-2 whitespace-pre-wrap text-sm print:text-xs print:mt-1">{appointment.task}</p>
+      {appointment.isRecurring && <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 print:text-[9px] print:mt-1">Wiederkehrend: {appointment.recurringType} {appointment.recurringEndDate && `bis ${new Date(appointment.recurringEndDate).toLocaleDateString('de-DE')}`}</p>}
+      {isPast && !isToday && !appointment.isRecurring && <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700/50 rounded-md flex items-center text-xs text-yellow-700 dark:text-yellow-300 print:hidden"><AlertTriangle size={16} className="mr-2"/>Termin liegt in der Vergangenheit.</div>}
+    </div>
+  );
+};
+
+const SearchResults = ({ appointments, onEdit, onDelete, darkMode }) => (
+    <div className="p-4">
+        <h2 className="text-2xl font-bold mb-4 dark:text-gray-100">Suchergebnisse</h2>
+        {appointments.length > 0
+            ? <div className="space-y-4">{appointments.map(app => <AppointmentCard key={app.id} appointment={app} onEdit={() => onEdit(new Date(app.date), app)} onDelete={onDelete} darkMode={darkMode} />)}</div>
+            : <p className="text-gray-600 dark:text-gray-400">Keine Termine gefunden.</p>
+        }
+    </div>
+);
+
+ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
 </html>
